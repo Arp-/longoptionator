@@ -1,0 +1,25 @@
+#!/usr/bin/env lua
+-- vim: syn=lua et tw
+util = require "util"
+inspect = require "inspect"
+
+function read_tables_for_commands(commands)
+  local cmd_table = {}
+  for i,cmd in ipairs(commands) do
+    local man = util.read_man(cmd)
+    cmd_table[cmd] = util.option_table(man)
+  end
+  return cmd_table
+end
+
+
+
+tab = read_tables_for_commands({"ls", "rm", "egrep"})
+
+
+print(inspect(tab))
+
+
+-- TODO parse bash
+
+
