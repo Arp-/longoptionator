@@ -39,6 +39,15 @@ util.table.contains = function(table, val)
 	return nil
 end
 
+util.table.haskey = function(table, key)
+	for k,v in pairs(table) do
+		if key == k then
+			return true
+		end
+		return false
+	end
+end
+
 util.table.index = function(table, val)
 	for k,v in pairs(table) do
 		if v == val then return k end

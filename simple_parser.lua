@@ -2,8 +2,10 @@
 local inspect = require "inspect"
 local util = require "util"
 local Stack = require "stack"
+local Bracket = require "bracket"
+local StringReader = require "string_reader"
 
--- What do I neet
+-- What do I need
 -- First I need to look for the command
 
 
@@ -23,7 +25,7 @@ function word_map(str)
 	local index = 1
 	local word = ""
 	repeat
-		local c = str:sub(index, index)
+		local c = str[index]
 		if is_word_char(c) then
 			word = word .. c
 		elseif word ~= "" then
@@ -91,11 +93,11 @@ function helper(text, index, option_map)
 	local before = text:sub(0, index-1)
 	local options = {}
 	local i = index +1
-	local c = getchar(text, i)
+	local c = text[i]
 	repeat
 		options[#options+1] = c
 		i = i+1
-		c = getchar(text, i)
+		c = text[i]
 	until not is_word_char(c)
 	local option_helper = make_option_helper(options, option_map)
 	local after = text:sub(i, text:len())
@@ -108,7 +110,7 @@ function helper(text, index, option_map)
 	end
 	newtext = newtext .. after
 	local len = newtext:len() - text:len()
-	return newtext, len
+	return StringReader(newtext), len
 end
 
 
@@ -117,39 +119,31 @@ function parse_command(text, option_table, command_obj)
 		return nil
 	end
 	local index = command_obj.pos + command_obj.word:len()
-	local stack = Stack.new()
-	local left_brackets = { "{", "(", "[", "\"", "'" }
-	local right_brackets = { "}", ")", "[", "\"", "'" }
+	local stack = Stack()
+	local bracket = Bracket(
+		{ "{", "(", "[", "\"", "'" },
+		{ "}", ")", "[", "\"", "'" }
+	)
 	local eoc = { "|", "&", ";", "\n" }
 
-	is_pair = function(c_left, c_right)
-		local left_index = util.table.index(left_brackets, c_left)
-		local right_index = util.table.index(right_brackets, c_right)
-		if left_index == nil then
-			return nil
-		elseif left_index == right_index then
-			return left_index
-		end
-		return false
-	end
-
+	print("bracket", bracket)
 	repeat
-		local c = getchar(text, index)
-		if stack:top() == nil and util.table.contains(eoc, c) then
+		local c = text[index]
+		if stack:top() == nil and (util.table.contains(eoc, c) or bracket:is_closing(c)) then
 			return text
 		elseif stack:top() == "'" and c ~= "'" then
 			-- NOP
 		elseif stack:top() == "\"" and c ~= "\"" then
 			-- NOP
 		elseif c == "-" and stack:top() == nil then
-			if getchar(text, index+1) == "-" then
+			if text[index+1] == "-" then
 			elseif is_word_char(c) then
 				text, len = helper(text, index, option_table[command_obj.word])
 				index = index + len -1
 			end
-		elseif util.table.contains(right_brackets, c) and is_pair(stack:top(), c) then
+		elseif bracket:is_closing(c) and bracket:is_pair(stack:top(), c) then
 			stack:pop()
-		elseif util.table.contains(left_brackets, c) then
+		elseif bracket:is_opening(c) then
 			stack:push(c)
 		end
 		index = index+1
@@ -158,12 +152,23 @@ function parse_command(text, option_table, command_obj)
 end
 
 local str = getfilestring("test.sh")
-local wm = word_map(str)
-local command = wm[3]
+local str_reader = StringReader(str)
 local cmd_table = {}
 cmd_table["ls"] = util.option_table(util.read_man("ls"))
-local a = parse_command(str, cmd_table, command)
-print(a)
+cmd_table["grep"] = util.option_table(util.read_man("grep"))
+print("grep ", inspect(cmd_table["grep"]))
+local word_index = 1
+local wm = word_map(str_reader)
+repeat
+	wm = word_map(str_reader)
+	local cmd = wm[word_index]
+	if util.table.haskey(cmd_table, cmd.word) then
+		str_reader = parse_command(str_reader, cmd_table, cmd)
+	end
+	word_index = word_index +1
+until word_index > #wm
+
+print (str_reader)
 --print(inspect(wm))
 --print(inspect(command))
 --print(inspect(cmd_table))

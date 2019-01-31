@@ -22,14 +22,13 @@ end
 
 
 
-local stack = {}
-stack.new = function()
+local Stack = function()
 	local self = {}
 	setmetatable(self, mt)
 	return self
 end
 
-return stack
+return Stack
 
 
 
