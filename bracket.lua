@@ -1,5 +1,5 @@
 
-local util = require "util" 
+local util = require "util"
 local bracket_meta = {}
 bracket_meta.__index = bracket_meta
 

@@ -4,22 +4,17 @@ local util = require "util"
 local Stack = require "stack"
 local Bracket = require "bracket"
 local StringReader = require "string_reader"
-
--- What do I need
--- First I need to look for the command
-
-
+--[[-------------------------------------------------------------------------]]--
 local word_regex = "[a-zA-Z0-9_-]"
-
 local terminator = ";|"
-
+--[[-------------------------------------------------------------------------]]--
 function is_word_char(c)
 	if type(c) ~= "string" then
 		return nil
 	end
 	return c:match("^" .. word_regex .. "$")
 end
-
+--[[-------------------------------------------------------------------------]]--
 function word_map(str)
 	local words = {}
 	local index = 1
@@ -38,41 +33,24 @@ function word_map(str)
 		words[#words+1] = { pos = index - word:len(), word = word }
 		word = ""
 	end
-
 	return words
 end
-
-function getfilestring(filename)
-	local f = io.open(filename, "r")
-	if not f then
-		return nil
-	end
-	return f:read("a")
-end
-
-
+--[[-------------------------------------------------------------------------]]--
 function command_pos(filename)
-
-	local str = getfilestring(filename)
+	local str = util.getfilestring(filename)
 	local it = str:gmatch("ls")
 	local val = nil
 	repeat 
 		val = it()
 	until val == nil
-
-	
-
 	f:close()
-
 end
-
+--[[-------------------------------------------------------------------------]]--
 function getchar(str, index)
-	if str:len() < index then
-		return nil -- TODO throw
-	end
+	assert(str:len() >= index)
 	return str:sub(index, index)
 end
-
+--[[-------------------------------------------------------------------------]]--
 function make_option_helper(short_options, map)
 	local option_helper = {}
 	local long = {}
@@ -88,7 +66,7 @@ function make_option_helper(short_options, map)
 	option_helper.long = long
 	return option_helper
 end
-
+--[[-------------------------------------------------------------------------]]--
 function helper(text, index, option_map)
 	local before = text:sub(0, index-1)
 	local options = {}
@@ -110,66 +88,76 @@ function helper(text, index, option_map)
 	end
 	newtext = newtext .. after
 	local len = newtext:len() - text:len()
-	return StringReader(newtext), len
+	return newtext, len
 end
+--[[-------------------------------------------------------------------------]]--
+local parse_command = function(text, option_table, word)
+	assert(word.word)
+	assert(word.pos)
+	assert(option_table[word.word] ~= nil)
 
-
-function parse_command(text, option_table, command_obj)
-	if option_table[command_obj.word] == nil then
-		return nil
-	end
-	local index = command_obj.pos + command_obj.word:len()
+	local index = word.pos + word.word:len()
 	local stack = Stack()
+	stack:push("_")
+	local len = 0
 	local bracket = Bracket(
-		{ "{", "(", "[", "\"", "'" },
-		{ "}", ")", "[", "\"", "'" }
+		{ "{", "(", "[" },
+		{ "}", ")", "[" }
 	)
+	local stringsign = { "'", "\"" }
+	local is_stringsign = function(c) return util.table.contains(stringsign, c) end
 	local eoc = { "|", "&", ";", "\n" }
+	local is_eoc = function(c) return util.table.contains(eoc, c) end
 
-	print("bracket", bracket)
 	repeat
 		local c = text[index]
-		if stack:top() == nil and (util.table.contains(eoc, c) or bracket:is_closing(c)) then
+		util.debug("c: ", c)
+		util.debug("stack: ", stack:top())
+		if c == "\\" then
+			util.debug("branch a")
+			index = index +1
+		elseif is_stringsign(stack:top()) and c ~= stack:top() then
+			util.debug("branch b")
+			-- ignore character
+		elseif bracket:is_opening(c) or (is_stringsign(c) and stack:top() ~= c) then
+			util.debug("branch c")
+			stack:push(c)
+		elseif bracket:is_closing(c) or (is_stringsign(c) and stack:top() == c) then
+			stack:pop(c)
+			util.debug("branch d")
+		elseif is_eoc(c) then
+			util.debug("branch e")
 			return text
-		elseif stack:top() == "'" and c ~= "'" then
-			-- NOP
-		elseif stack:top() == "\"" and c ~= "\"" then
-			-- NOP
-		elseif c == "-" and stack:top() == nil then
+		elseif stack:top() == "_" and c == "-" then
+			util.debug("branch f")
 			if text[index+1] == "-" then
-			elseif is_word_char(c) then
-				text, len = helper(text, index, option_table[command_obj.word])
+				util.debug("branch f/1")
+				index = index+1
+			elseif is_word_char(text[index+1]) then
+				util.debug("brach f/2")
+				text, len = helper(text, index, option_table[word.word])
 				index = index + len -1
 			end
-		elseif bracket:is_closing(c) and bracket:is_pair(stack:top(), c) then
-			stack:pop()
-		elseif bracket:is_opening(c) then
-			stack:push(c)
 		end
 		index = index+1
 	until index == text:len()
 	return text
 end
+--[[-------------------------------------------------------------------------]]--
+function do_shet(text, option_table)
+	local str_reader = StringReader(text)
+	local word_index = 1
+	local wm = nil
+	repeat
+		wm = word_map(str_reader)
+		local cmd = wm[word_index]
+		if cmd ~= nil and util.table.haskey(option_table, cmd.word) then
+			str_reader = parse_command(str_reader, option_table, cmd)
+		end
+		word_index = word_index +1
+	until word_index > #wm
+	return str_reader.text
+end
+--[[-------------------------------------------------------------------------]]--
+return do_shet
 
-local str = getfilestring("test.sh")
-local str_reader = StringReader(str)
-local cmd_table = {}
-cmd_table["ls"] = util.option_table(util.read_man("ls"))
-cmd_table["grep"] = util.option_table(util.read_man("grep"))
-print("grep ", inspect(cmd_table["grep"]))
-local word_index = 1
-local wm = word_map(str_reader)
-repeat
-	wm = word_map(str_reader)
-	local cmd = wm[word_index]
-	if util.table.haskey(cmd_table, cmd.word) then
-		str_reader = parse_command(str_reader, cmd_table, cmd)
-	end
-	word_index = word_index +1
-until word_index > #wm
-
-print (str_reader)
---print(inspect(wm))
---print(inspect(command))
---print(inspect(cmd_table))
---print(inspect(a))

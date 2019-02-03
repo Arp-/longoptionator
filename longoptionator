@@ -1,25 +1,21 @@
 #!/usr/bin/env lua
 -- vim: syn=lua et tw
-util = require "util"
-inspect = require "inspect"
+local util = require "util"
+local inspect = require "inspect"
+local simple_parser = require "simple_parser"
+local manparser = require "manparser"
 
-function read_tables_for_commands(commands)
-  local cmd_table = {}
-  for i,cmd in ipairs(commands) do
-    local man = util.read_man(cmd)
-    cmd_table[cmd] = util.option_table(man)
-  end
-  return cmd_table
+local str = nil
+if not arg[1] then
+  print(inspect(arg))
+  io.stderr:write("no file specified!, Reading from stdin")
+  str = io.read("a")
+else
+  str = util.getfilestring(arg[1])
 end
+--local str = io.read("a")
+local cmd_table = manparser.make_table({"ls", "grep", "wc", "head", "tail", "date", "cut"})
 
-
-
-tab = read_tables_for_commands({"ls", "rm", "egrep"})
-
-
-print(inspect(tab))
-
-
--- TODO parse bash
-
+local newtext = simple_parser(str, cmd_table)
+print(newtext)
 
