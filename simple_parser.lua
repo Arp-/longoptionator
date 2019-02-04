@@ -1,14 +1,12 @@
-
 local inspect = require "inspect"
+DEBUG = false
 local util = require "util"
 local Stack = require "stack"
 local Bracket = require "bracket"
 local StringReader = require "string_reader"
 --[[-------------------------------------------------------------------------]]--
-local word_regex = "[a-zA-Z0-9_-]"
-local terminator = ";|"
---[[-------------------------------------------------------------------------]]--
 function is_word_char(c)
+	local word_regex = "[a-zA-Z0-9_-]"
 	if type(c) ~= "string" then
 		return nil
 	end
@@ -67,31 +65,37 @@ function make_option_helper(short_options, map)
 	return option_helper
 end
 --[[-------------------------------------------------------------------------]]--
-function helper(text, index, option_map)
+function replace_options(text, index, option_map)
 	local before = text:sub(0, index-1)
 	local options = {}
-	local i = index +1
+	local i = index+1
 	local c = text[i]
 	repeat
 		options[#options+1] = c
 		i = i+1
 		c = text[i]
 	until not is_word_char(c)
+	local lastchar = c
+	local remained_shortoption = false
 	local option_helper = make_option_helper(options, option_map)
 	local after = text:sub(i, text:len())
 	local newtext = before
 	if not util.table.empty(option_helper.short) then
-		newtext = newtext .. "-" .. (table.concat(option_helper.short, " -")) .. " "
+		newtext = newtext .. "-" .. (table.concat(option_helper.short, " -"))
+		remained_shortoption = true
 	end
 	if not util.table.empty(option_helper.long) then
-		newtext = newtext .. "--" .. (table.concat(option_helper.long, " --")) .. " "
+		if remained_shortoption then newtext = newtext .. " " end
+		newtext = newtext .. "--" .. (table.concat(option_helper.long, " --"))
 	end
 	newtext = newtext .. after
-	local len = newtext:len() - text:len()
-	return newtext, len
+	util.debug(after.text)
+	local lendiff = newtext:len() - text:len()
+	util.debug("LENDIFF: ", lendiff)
+	return newtext, lendiff
 end
 --[[-------------------------------------------------------------------------]]--
-local parse_command = function(text, option_table, word)
+local parse_one = function(text, option_table, word)
 	assert(word.word)
 	assert(word.pos)
 	assert(option_table[word.word] ~= nil)
@@ -135,8 +139,8 @@ local parse_command = function(text, option_table, word)
 				index = index+1
 			elseif is_word_char(text[index+1]) then
 				util.debug("brach f/2")
-				text, len = helper(text, index, option_table[word.word])
-				index = index + len -1
+				text, lendiff = replace_options(text, index, option_table[word.word])
+				index = index + lendiff
 			end
 		end
 		index = index+1
@@ -144,7 +148,7 @@ local parse_command = function(text, option_table, word)
 	return text
 end
 --[[-------------------------------------------------------------------------]]--
-function do_shet(text, option_table)
+function parse(text, option_table)
 	local str_reader = StringReader(text)
 	local word_index = 1
 	local wm = nil
@@ -152,12 +156,12 @@ function do_shet(text, option_table)
 		wm = word_map(str_reader)
 		local cmd = wm[word_index]
 		if cmd ~= nil and util.table.haskey(option_table, cmd.word) then
-			str_reader = parse_command(str_reader, option_table, cmd)
+			str_reader = parse_one(str_reader, option_table, cmd)
 		end
 		word_index = word_index +1
 	until word_index > #wm
 	return str_reader.text
 end
 --[[-------------------------------------------------------------------------]]--
-return do_shet
+return parse
 

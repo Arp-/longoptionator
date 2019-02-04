@@ -17,5 +17,5 @@ end
 local cmd_table = manparser.make_table({"ls", "grep", "wc", "head", "tail", "date", "cut"})
 
 local newtext = simple_parser(str, cmd_table)
-print(newtext)
+io.stdout:write(newtext)
 
