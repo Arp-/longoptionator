@@ -1,13 +1,11 @@
 #!/usr/bin/env lua
 -- vim: syn=lua et tw
 local util = require "util"
-local inspect = require "inspect"
 local simple_parser = require "simple_parser"
 local manparser = require "manparser"
 
 local str = nil
 if not arg[1] then
-  print(inspect(arg))
   io.stderr:write("no file specified!, Reading from stdin")
   str = io.read("a")
 else

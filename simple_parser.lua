@@ -1,4 +1,3 @@
-local inspect = require "inspect"
 DEBUG = false
 local util = require "util"
 local Stack = require "stack"
