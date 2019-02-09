@@ -50,17 +50,14 @@ end
 --[[-------------------------------------------------------------------------]]--
 function make_option_helper(short_options, map)
 	local option_helper = {}
-	local long = {}
-	local short = {}
-	for _,v in pairs(short_options) do
+
+	for k,v in pairs(short_options) do
 		if map[v] ~= nil then
-			long[#long+1] = map[v]
+			option_helper[#option_helper+1] = "--" .. map[v]
 		else
-			short[#short+1] = v
+			option_helper[#option_helper+1] = "-" .. v
 		end
 	end
-	option_helper.short = short
-	option_helper.long = long
 	return option_helper
 end
 --[[-------------------------------------------------------------------------]]--
@@ -75,17 +72,11 @@ function replace_options(text, index, option_map)
 		c = text[i]
 	until not is_word_char(c)
 	local lastchar = c
-	local remained_shortoption = false
 	local option_helper = make_option_helper(options, option_map)
 	local after = text:sub(i, text:len())
 	local newtext = before
-	if not util.table.empty(option_helper.short) then
-		newtext = newtext .. "-" .. (table.concat(option_helper.short, " -"))
-		remained_shortoption = true
-	end
-	if not util.table.empty(option_helper.long) then
-		if remained_shortoption then newtext = newtext .. " " end
-		newtext = newtext .. "--" .. (table.concat(option_helper.long, " --"))
+	if not util.table.empty(option_helper) then
+		newtext = newtext .. table.concat(option_helper, " ")
 	end
 	newtext = newtext .. after
 	util.debug(after.text)
