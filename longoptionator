@@ -12,7 +12,7 @@ else
   str = util.getfilestring(arg[1])
 end
 --local str = io.read("a")
-local cmd_table = manparser.make_table({"ls", "grep", "wc", "head", "tail", "date", "cut", "chown", "chmod"})
+local cmd_table = manparser.make_table({"ls", "grep", "wc", "head", "tail", "date", "cut", "chown", "chmod", "sed", "tr"})
 
 local newtext = simple_parser(str, cmd_table)
 io.stdout:write(newtext)
