@@ -102,6 +102,8 @@ local parse_one = function(text, option_table, word)
 	local is_stringsign = function(c) return util.table.contains(stringsign, c) end
 	local eoc = { "|", "&", ";", "\n" }
 	local is_eoc = function(c) return util.table.contains(eoc, c) end
+	local whitespace = { " ", "\n", "\t" }
+	local is_whitespace = function(c) return util.table.contains(whitespace, c) end
 
 	repeat
 		local c = text[index]
@@ -124,11 +126,17 @@ local parse_one = function(text, option_table, word)
 			return text
 		elseif stack:top() == "_" and c == "-" then
 			util.debug("branch f")
-			if text[index+1] == "-" then
-				util.debug("branch f/1")
+			if index < 1 then
+				util.debug("brach f/1")
+				index = index+1
+			elseif not is_whitespace(text[index-1]) then
+				util.debug("branch f/2")
+				index = index+1
+			elseif text[index+1] == "-" then
+				util.debug("branch f/3")
 				index = index+1
 			elseif is_word_char(text[index+1]) then
-				util.debug("brach f/2")
+				util.debug("brach f/4")
 				text, lendiff = replace_options(text, index, option_table[word.word])
 				index = index + lendiff
 			end
